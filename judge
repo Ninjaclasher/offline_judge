@@ -109,7 +109,7 @@ def main():
 		if os.path.isdir(case):
 			if depth != -1:
 				print(" " * 4 * depth + " - " + os.path.basename(case))
-			for filename in os.listdir(case):
+			for filename in sorted(os.listdir(case)):
 				recursive_judge(os.path.join(case,filename),depth+1)
 		elif case.endswith(".in") and os.path.isfile(case) and os.path.isfile(case[:-2] + "out"):
 			file_out = case[:-2] + "out"
