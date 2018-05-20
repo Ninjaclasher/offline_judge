@@ -22,12 +22,22 @@ import resource
 import mmap
 import signal
 import math
+from enum import Enum
 
 def mem_str(mem):
 	return str(mem * 1024 // resource.getpagesize()) + "p/" + str(round(mem / 1024,2)) + "M"
 
 def cpu_mem_str(cpu,mem):
 	return mem_str(mem) + " " + str(round(cpu,4)) + "s"
+
+class Verdict(Enum):
+	AC = 0
+	RTE = 1 << 0
+	MLE = 1 << 1
+	OLE = 1 << 2
+	TLE = 1 << 3
+	RE = 1 << 4
+	WA = 1 << 5
 
 def judge_case(file_i,file_o,cpu_limit,mem_limit,out_limit=None):
 	r,w = os.pipe()
@@ -56,20 +66,19 @@ def judge_case(file_i,file_o,cpu_limit,mem_limit,out_limit=None):
 		result += buf
 	os.kill(submission,signal.SIGKILL)
 	_,return_status,rusage = os.wait4(submission,0)
-	return_signal = return_status & 0xff
-	return_code = return_status >> 8
+	# TODO: Other processes randomly sending signals can break this
 	if not (len(result) <= out_limit):
-		return "OLE",rusage.ru_utime,rusage.ru_maxrss,return_status
-	if return_signal == 9 or rusage.ru_utime > cpu_limit:
-		return "TLE",rusage.ru_utime,rusage.ru_maxrss,return_status
-	if return_signal != 0:
-		return "RTE",rusage.ru_utime,rusage.ru_maxrss,return_status
-	if return_code != 0:
-		return "RE",rusage.ru_utime,rusage.ru_maxrss,return_status
+		return Verdict.OLE,rusage.ru_utime,rusage.ru_maxrss,return_status
+	if os.WIFSIGNALED(return_status) and os.WTERMSIG(return_status) == signal.SIGKILL or rusage.ru_utime > cpu_limit:
+		return Verdict.TLE,rusage.ru_utime,rusage.ru_maxrss,return_status
+	if os.WIFSIGNALED(return_status):
+		return Verdict.RTE,rusage.ru_utime,rusage.ru_maxrss,return_status
+	if os.WEXITSTATUS(return_status) != 0:
+		return Verdict.RE,rusage.ru_utime,rusage.ru_maxrss,return_status
 	answer = open(file_o,"rb").read()
 	if answer != result:
-		return "WA",rusage.ru_utime,rusage.ru_maxrss,return_status
-	return "AC",rusage.ru_utime,rusage.ru_maxrss,return_status
+		return Verdict.WA,rusage.ru_utime,rusage.ru_maxrss,return_status
+	return Verdict.AC,rusage.ru_utime,rusage.ru_maxrss,return_status
 
 def main():
 	if len(sys.argv) != 5:
@@ -81,16 +90,7 @@ def main():
 		"M" : 2**20,
 		"G" : 2**30,
 	}
-	STATUS_MASK = {
-		"AC" : 0,
-		"RTE" : 1,
-		"MLE" : 2,
-		"OLE" : 4,
-		"TLE" : 8,
-		"RE" : 16,
-		"WA" : 32
-	}
-	RTE_STATUS = {
+	RTE_MSG = {
 		4 : "Illegal instruction",
 		6 : "Aborted",
 		8 : "Floating point exception",
@@ -116,23 +116,23 @@ def main():
 			verdict,cpu_usage,mem_usage,return_status = judge_case(case,file_out,cpu_limit,mem_limit,out_limit=os.path.getsize(file_out) * 4)
 			cpu_total += cpu_usage
 			mem_total = max(mem_usage,mem_total)
-			status_mask |= STATUS_MASK[verdict]
-			num_ac += verdict == "AC"
+			status_mask |= verdict.value
+			if verdict == Verdict.AC:
+				num_ac += 1
 			num_cases += 1
-			case_name_verdict = " " * 4 * depth + os.path.basename(case[:-3]) + ": " + verdict
+			case_name_verdict = " " * 4 * depth + os.path.basename(case[:-3]) + ": " + verdict.name
 			usage_str = cpu_mem_str(cpu_usage,mem_usage)
-			if verdict == "WA" or verdict == "AC":
+			if verdict == Verdict.WA or verdict == Verdict.AC or verdict == Verdict.OLE:
 				print(case_name_verdict + " " + usage_str)
-			elif verdict == "OLE":
-				print(case_name_verdict + " " + usage_str)
-			elif verdict == "TLE":
+			elif verdict == Verdict.TLE:
 				print(case_name_verdict + "(>" + str(cpu_limit) + ") " + mem_str(mem_usage))
-			elif verdict == "RTE":
-				print(case_name_verdict + "(" + RTE_STATUS[return_status & 0x7f] + ") " + usage_str) # TODO: add a default when no dictionary message exists
-			elif verdict == "RE":
-				print(case_name_verdict + "(" + str(return_status >> 8) + ") " + usage_str)
+			elif verdict == Verdict.RTE:
+				signal = os.WTERMSIG(return_status)
+				print(case_name_verdict + "(" + (RTE_MSG[signal] if signal in RTE_MSG else "signal " + str(status)) + ") " + usage_str)
+			elif verdict == Verdict.RE:
+				print(case_name_verdict + "(" + str(os.WEXITSTATUS(return_status)) + ") " + usage_str)
 	recursive_judge(case_path)
-	print(str(num_ac) + "/" + str(num_cases) + " " + ("AC" if num_ac == num_cases else next(k for k,v in STATUS_MASK.items() if v == status_mask &- status_mask)) + " " + cpu_mem_str(cpu_total,mem_total))
+	print(str(num_ac) + "/" + str(num_cases) + " " + Verdict(status_mask & -status_mask).name + " " + cpu_mem_str(cpu_total,mem_total))
 
 if __name__ == "__main__":
 	try:
