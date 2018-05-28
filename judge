@@ -15,6 +15,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import argparse
 import sys
 import os
 import subprocess
@@ -39,7 +40,7 @@ class Verdict(Enum):
 	RE = 1 << 4
 	WA = 1 << 5
 
-def judge_case(file_i,file_o,cpu_limit,mem_limit,out_limit=None):
+def judge_case(file_i,file_o,cpu_limit,mem_limit,executable,out_limit=None):
 	r,w = os.pipe()
 	os.set_inheritable(w,True)
 	os.set_inheritable(2,True)
@@ -53,7 +54,7 @@ def judge_case(file_i,file_o,cpu_limit,mem_limit,out_limit=None):
 		cpu_limit_sec = math.ceil(cpu_limit)
 		resource.setrlimit(resource.RLIMIT_AS,(mem_limit,mem_limit))
 		resource.setrlimit(resource.RLIMIT_CPU,(cpu_limit_sec,cpu_limit_sec))
-		os.execv(sys.argv[4],[sys.argv[4]])
+		os.execv(executable,[executable])
 	submission = pid
 	os.close(w)
 	if out_limit == None:
@@ -81,9 +82,12 @@ def judge_case(file_i,file_o,cpu_limit,mem_limit,out_limit=None):
 	return Verdict.AC,rusage.ru_utime,rusage.ru_maxrss,return_status
 
 def main():
-	if len(sys.argv) != 5:
-		print(sys.argv[0] + " test_cases cpu_limit mem_limit executable")
-		return 1
+	parser = argparse.ArgumentParser(description="An offline judging tool.")
+	parser.add_argument("test_cases", help="Directory that contains the test cases to judge with.")
+	parser.add_argument("cpu_limit", type=float, help="Time limit.")
+	parser.add_argument("mem_limit", help="Memory limit.")
+	parser.add_argument("executable", help="File to run.")
+	args = parser.parse_args()
 	MEMORY_UNIT = {
 		"B": 2**0,
 		"K" : 2**10,
@@ -96,9 +100,10 @@ def main():
 		8 : "Floating point exception",
 		11 : "Segmentation fault"
 	}
-	case_path = sys.argv[1]
-	cpu_limit = float(sys.argv[2])
-	mem_limit = (int(sys.argv[3][:-1]) * MEMORY_UNIT[sys.argv[3][-1:]]) & -mmap.PAGESIZE
+	case_path = args.test_cases
+	cpu_limit = args.cpu_limit
+	mem_limit = (int(args.mem_limit[:-1]) * MEMORY_UNIT[args.mem_limit[-1:]]) & -mmap.PAGESIZE
+	executable = args.executable
 	num_ac = 0
 	status_mask = 0
 	cpu_total = 0.0
@@ -113,7 +118,7 @@ def main():
 				recursive_judge(os.path.join(case,filename),depth+1)
 		elif case.endswith(".in") and os.path.isfile(case) and os.path.isfile(case[:-2] + "out"):
 			file_out = case[:-2] + "out"
-			verdict,cpu_usage,mem_usage,return_status = judge_case(case,file_out,cpu_limit,mem_limit,out_limit=os.path.getsize(file_out) * 4)
+			verdict,cpu_usage,mem_usage,return_status = judge_case(case,file_out,cpu_limit,mem_limit,executable,out_limit=os.path.getsize(file_out) * 4)
 			cpu_total += cpu_usage
 			mem_total = max(mem_usage,mem_total)
 			status_mask |= verdict.value
