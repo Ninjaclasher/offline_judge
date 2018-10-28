@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
 """
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import argparse
@@ -40,7 +40,54 @@ class Verdict(Enum):
 	RE = 1 << 4
 	WA = 1 << 5
 
-def judge_case(file_i,file_o,cpu_limit,mem_limit,executable,out_limit=None):
+def iswhite(ch):
+	return chr(ch) in [' ', '\t', '\v', '\f', '\n', '\r']
+
+def isline(ch):
+	return chr(ch) in ['\n', '\r']
+
+def identical(judge, process):
+	return judge == process
+
+def standard(judge, process):
+	try:
+		#Use a C subprogram instead python for speed increase
+		from _checker import standard as c_standard
+		return c_standard(judge, process)
+	except ImportError:
+		j = 0
+		p = 0
+		jlen = len(judge)
+		plen = len(process)
+		while j < jlen and iswhite(judge[j]):
+			j += 1
+		while p < plen and iswhite(process[p]):
+			p += 1
+		while True:
+			nj = False
+			np = False
+			while j < jlen and iswhite(judge[j]):
+				nj |= isline(judge[j])
+				j += 1
+			while p < plen and iswhite(process[p]):
+				np |= isline(process[p])
+				p += 1
+			if j == jlen or p == plen:
+				return j == jlen and p == plen
+			if nj != np:
+				return False
+			while j < jlen and not iswhite(judge[j]):
+				if p >= plen:
+					return False
+				if judge[j] != process[p]:
+					return False
+				j += 1
+				p += 1
+
+def check(judge_output, process_output, checker=standard):
+	return checker(judge_output, process_output)
+
+def judge_case(file_i,file_o,cpu_limit,mem_limit,executable,checker, out_limit=None):
 	r,w = os.pipe()
 	os.set_inheritable(w,True)
 	os.set_inheritable(2,True)
@@ -77,19 +124,24 @@ def judge_case(file_i,file_o,cpu_limit,mem_limit,executable,out_limit=None):
 	if os.WEXITSTATUS(return_status) != 0:
 		return Verdict.RE,rusage.ru_utime,rusage.ru_maxrss,return_status
 	answer = open(file_o,"rb").read()
-	if answer != result:
+	if not check(answer, result, checker):
 		return Verdict.WA,rusage.ru_utime,rusage.ru_maxrss,return_status
 	return Verdict.AC,rusage.ru_utime,rusage.ru_maxrss,return_status
 
 def main():
+	checkers = {
+		'standard' : standard,
+		'identical': identical,
+	}
 	parser = argparse.ArgumentParser(description="An offline judging tool.")
 	parser.add_argument("test_cases", help="Directory that contains the test cases to judge with.")
 	parser.add_argument("cpu_limit", type=float, help="Time limit.")
 	parser.add_argument("mem_limit", help="Memory limit.")
 	parser.add_argument("executable", help="File to run.")
+	parser.add_argument("checker", default="standard", nargs="?", choices=checkers.keys(), help="Checker to be used to compare outputs.")
 	args = parser.parse_args()
 	MEMORY_UNIT = {
-		"B": 2**0,
+		"B" : 2**0,
 		"K" : 2**10,
 		"M" : 2**20,
 		"G" : 2**30,
@@ -104,6 +156,7 @@ def main():
 	cpu_limit = args.cpu_limit
 	mem_limit = (int(args.mem_limit[:-1]) * MEMORY_UNIT[args.mem_limit[-1:]]) & -mmap.PAGESIZE
 	executable = args.executable
+	checker = checkers[args.checker]
 	num_ac = 0
 	status_mask = 0
 	cpu_total = 0.0
@@ -118,7 +171,7 @@ def main():
 				recursive_judge(os.path.join(case,filename),depth+1)
 		elif case.endswith(".in") and os.path.isfile(case) and os.path.isfile(case[:-2] + "out"):
 			file_out = case[:-2] + "out"
-			verdict,cpu_usage,mem_usage,return_status = judge_case(case,file_out,cpu_limit,mem_limit,executable,out_limit=os.path.getsize(file_out) * 4)
+			verdict,cpu_usage,mem_usage,return_status = judge_case(case,file_out,cpu_limit,mem_limit,executable,checker,out_limit=os.path.getsize(file_out) * 4)
 			cpu_total += cpu_usage
 			mem_total = max(mem_usage,mem_total)
 			status_mask |= verdict.value

@@ -14,3 +14,10 @@ An offline equivalent of an online judge(dmoj.ca) in Python. Unfortunately, it u
 The judge outputs one line for every case, indicating the test case name/id, verdict and the memory/cpu usage. A final line is then appended, indicating the number of cases passed, the final verdict, the maximum memory usage on any test case, and the total cpu usage.
 
 Note: The memory usage is given in this format: "256p/1M", where 256 is the number of memory pages used.
+
+For speed performance reasons, this script comes with a C checker, which is up to 5 times faster than the Python equivalent.
+To compile the C checker, run:
+```
+gcc -shared -o _checker.so -fPIC _checker.c
+```
+in the same directory as `judge`.
