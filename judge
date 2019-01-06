@@ -73,19 +73,20 @@ def judge_case(file_i, file_o, cpu_limit, mem_limit, executable, checker, out_li
     os.close(r)
     _,return_status,rusage = os.wait4(submission,0)
     # TODO: Other processes randomly sending signals can break this
-    if not len(result) <= out_limit:
-        return Verdict.OLE, rusage.ru_utime, rusage.ru_maxrss, return_status
-    if os.WIFSIGNALED(return_status) and os.WTERMSIG(return_status) == signal.SIGKILL or rusage.ru_utime > cpu_limit:
-        return Verdict.TLE, rusage.ru_utime, rusage.ru_maxrss, return_status
-    if os.WIFSIGNALED(return_status):
-        return Verdict.RTE, rusage.ru_utime, rusage.ru_maxrss, return_status
-    if os.WEXITSTATUS(return_status) != 0:
-        return Verdict.RE, rusage.ru_utime, rusage.ru_maxrss, return_status
-    with open(file_o, "rb") as out:
-        answer = out.read()
-    if not check(answer, result, checker):
-        return Verdict.WA, rusage.ru_utime, rusage.ru_maxrss, return_status
-    return Verdict.AC, rusage.ru_utime, rusage.ru_maxrss, return_status
+    verdict = None
+    if len(result) > out_limit:
+        verdict = Verdict.OLE
+    elif os.WIFSIGNALED(return_status) and os.WTERMSIG(return_status) == signal.SIGKILL or rusage.ru_utime > cpu_limit:
+        verdict = Verdict.TLE
+    elif os.WIFSIGNALED(return_status):
+        verdict = Verdict.RTE
+    elif os.WEXITSTATUS(return_status) != 0:
+        verdict = Verdict.RE
+    else:
+        with open(file_o, "rb") as out:
+            answer = out.read()
+        verdict = Verdict.AC if check(answer, result, checker) else Verdict.WA 
+    return verdict, rusage.ru_utime, rusage.ru_maxrss, return_status
 
 def main():
     checkers = {
@@ -128,7 +129,7 @@ def main():
         nonlocal cpu_total,mem_total,status_mask,num_cases,num_ac
         if os.path.isdir(case):
             if depth != -1:
-                print(ansi_style("#ansi[{}](yellow|bold)".format("{padding} - {basename}".format(padding=" " * depth, basename=os.path.basename(case))), no_ansi))
+                print(ansi_style("#ansi[{padding} - {basename}](yellow|bold)".format(padding=" " * depth, basename=os.path.basename(case)), no_ansi))
             for filename in sorted(os.listdir(case)):
                 recursive_judge(os.path.join(case,filename),depth+1)
         elif case.endswith(".in") and os.path.isfile(case) and os.path.isfile(case[:-2] + "out"):
