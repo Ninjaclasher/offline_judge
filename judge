@@ -61,7 +61,7 @@ def judge_case(file_i, file_o, cpu_limit, mem_limit, executable, checker, out_li
         os.execv(executable,[executable])
     submission = pid
     os.close(w)
-    if out_limit == None:
+    if out_limit is None:
         out_limit = os.stat(file_o).st_size
     result = os.read(r,mmap.PAGESIZE)
     while len(result) < out_limit:
@@ -70,6 +70,7 @@ def judge_case(file_i, file_o, cpu_limit, mem_limit, executable, checker, out_li
             break
         result += buf
     os.kill(submission,signal.SIGKILL)
+    os.close(r)
     _,return_status,rusage = os.wait4(submission,0)
     # TODO: Other processes randomly sending signals can break this
     if not len(result) <= out_limit:
