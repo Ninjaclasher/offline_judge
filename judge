@@ -123,10 +123,11 @@ def main():
     num_ac = 0
     status_mask = 0
     cpu_total = 0.0
+    cpu_max = 0.0
     mem_total = 0
     num_cases = 0
     def recursive_judge(case,depth=-1):
-        nonlocal cpu_total,mem_total,status_mask,num_cases,num_ac
+        nonlocal cpu_total, cpu_max, mem_total, status_mask, num_cases, num_ac
         if os.path.isdir(case):
             if depth != -1:
                 print(ansi_style("#ansi[{padding} - {basename}](yellow|bold)".format(padding=" " * depth, basename=os.path.basename(case)), no_ansi))
@@ -136,12 +137,13 @@ def main():
             file_out = case[:-2] + "out"
             verdict,cpu_usage,mem_usage,return_status = judge_case(case,file_out,cpu_limit,mem_limit,executable,checker,out_limit=os.path.getsize(file_out) * 4)
             cpu_total += cpu_usage
-            mem_total = max(mem_usage,mem_total)
+            cpu_max = max(cpu_max, cpu_usage)
+            mem_total = max(mem_total, mem_usage)
             status_mask |= verdict.value
             if verdict == Verdict.AC:
                 num_ac += 1
             num_cases += 1
-            usage_str = cpu_mem_str(cpu_usage,mem_usage)
+            usage_str = cpu_mem_str(cpu_usage, mem_usage)
             case_name = "{indent} {filename}: ".format(indent=" " * 4 * depth, filename=os.path.basename(case[:-3]))
             case_name_verdict = case_name + verdict_str(verdict, no_ansi)
             if verdict == Verdict.WA or verdict == Verdict.AC or verdict == Verdict.OLE:
@@ -154,7 +156,7 @@ def main():
             elif verdict == Verdict.RE:
                 print("{} ({}) {}".format(case_name_verdict, os.WEXITSTATUS(return_status), usage_str))
     recursive_judge(case_path)
-    print("{ac}/{total} {verdict} {usage}".format(ac=num_ac, total=num_cases, verdict=verdict_str(Verdict(status_mask & -status_mask), no_ansi), usage=cpu_mem_str(cpu_total,mem_total)))
+    print("{ac}/{total} {verdict} {usage}/{max_cpu}s".format(ac=num_ac, total=num_cases, verdict=verdict_str(Verdict(status_mask & -status_mask), no_ansi), usage=cpu_mem_str(cpu_total, mem_total), max_cpu=round(cpu_max, 4)))
 
 if __name__ == "__main__":
     try:
