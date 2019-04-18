@@ -40,6 +40,6 @@ optional arguments:
   --no-ansi             disable ANSI output
 ```
 
-The judge outputs one line for every case, indicating the test case name/id, verdict and the memory/cpu usage. A final line is then appended, indicating the number of cases passed, the final verdict, the maximum memory usage on any test case, and the total/max time usage.
+The judge outputs one line for every case, indicating the test case name/id, verdict and the memory/time usage. A final line is then appended, indicating the number of cases passed, the final verdict, the maximum memory usage on any test case, and the total/max time usage.
 
 Note: The memory usage is given in this format: "256p/1M", where 256 is the number of memory pages used.

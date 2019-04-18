@@ -48,7 +48,7 @@ def isline(ch):
 def standard(judge, process):
     try:
         # Use a C subprogram instead python for speed increase
-        from _checker import standard as c_standard
+        from ._checker import standard as c_standard
         return c_standard(judge, process)
     except ImportError:
         j = 0

@@ -8,7 +8,7 @@ with open('README.md') as f:
 
 setup(
     name='offline_judge',
-    version='1.0.0',
+    version='1.0.1',
     entry_points={
         'console_scripts': [
             'judge = offline_judge.judge:main',
