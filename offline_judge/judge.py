@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import argparse
 import math
 import mmap
@@ -11,8 +9,8 @@ import sys
 from enum import Enum
 from operator import attrgetter
 
-from checkers import identical, floats, standard
-from ansi import ansi_style
+from .checkers import identical, floats, standard
+from .ansi import ansi_style
 
 
 class Verdict(Enum):
@@ -239,6 +237,7 @@ def main():
     no_ansi = args.no_ansi
 
     OfflineJudge(case_path, time_limit, memory_limit, executable, checker, no_ansi).run()
+    return 0
 
 
 if __name__ == '__main__':

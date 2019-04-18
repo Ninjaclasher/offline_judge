@@ -2,36 +2,8 @@
 An offline equivalent of an online judge in Python. Unfortunately, it uses many Unix-exclusive features. This is in theory compatible with Unix-likes, however, it is only tested on Linux 4.12.3.
 
 ## Installation
-First, clone the repository:
 ```
-$ git clone https://github.com/Ninjaclasher/offline_judge
-$ cd offline_judge
-```
-
-Install the prerequisites:
-```
-$ apt update
-$ apt install python3 python3-pip
-$ pip install -r requirements.txt
-```
-
-Allow `judge` to be executable:
-```
-$ chmod +x judge
-```
-
-## Optional Installation
-For speed performance reasons, this script comes with a C checker, which is up to 5 times faster than the Python equivalent.
-
-Install the prerequisites:
-```
-$ apt update
-$ apt install gcc
-```
-
-To compile the C checker, run:
-```
-$ gcc -shared -o _checker.so -fPIC _checker.c
+$ pip install offline-judge
 ```
 
 ## Usage
