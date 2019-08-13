@@ -79,4 +79,3 @@ def standard(judge, process):
                     return False
                 j += 1
                 p += 1
-
