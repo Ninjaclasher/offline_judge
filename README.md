@@ -9,7 +9,10 @@ $ pip install offline-judge
 ## Usage
 ```
 $ judge --help
-usage: judge [-h] [--no-ansi]
+usage: judge [-h] [--no-ansi] [--full-paths] [--no-summary]
+             [--no-resource-usage]
+             [--only-verdicts {AC,RTE,MLE,OLE,TLE,RE,WA} [{AC,RTE,MLE,OLE,TLE,RE,WA} ...]]
+             [--exclude-verdicts {AC,RTE,MLE,OLE,TLE,RE,WA} [{AC,RTE,MLE,OLE,TLE,RE,WA} ...]]
              test_cases time_limit memory_limit executable
              [{standard,floats,identical}]
 
@@ -37,9 +40,13 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  --no-ansi             disable ANSI output
+  --no-ansi             Disable ANSI output.
+  --full-paths          Use full case paths instead of batch headings and
+                        padding.
+  --no-summary          Do not output the final summary.
+  --no-resource-usage   Do not output time and memory usage.
+  --only-verdicts {AC,RTE,MLE,OLE,TLE,RE,WA} [{AC,RTE,MLE,OLE,TLE,RE,WA} ...]
+                        Only display cases with the verdicts specified.
+  --exclude-verdicts {AC,RTE,MLE,OLE,TLE,RE,WA} [{AC,RTE,MLE,OLE,TLE,RE,WA} ...]
+                        Do not display cases with the verdicts specified.
 ```
-
-The judge outputs one line for every case, indicating the test case name/id, verdict and the memory/time usage. A final line is then appended, indicating the number of cases passed, the final verdict, the maximum memory usage on any test case, and the total/max time usage.
-
-Note: The memory usage is given in this format: "256p/1M", where 256 is the number of memory pages used.
