@@ -80,13 +80,23 @@ class Case:
 
 
 class OfflineJudge:
-    def __init__(self, case_path, time_limit, memory_limit, executable, checker, no_ansi):
+    def __init__(self, case_path, time_limit, memory_limit, executable, checker, *args, **kwargs):
         self.case_path = case_path
         self.time_limit = time_limit
         self.memory_limit = memory_limit
         self.executable = executable
         self.check = checker
-        self.no_ansi = no_ansi
+
+        self.args = args
+        self.kwargs = {
+            'no_ansi': False,
+            'full_paths': False,
+            'no_summary': False,
+            'no_resource_usage': False,
+            'include_verdicts': [],
+            'exclude_verdicts': [],
+        }
+        self.kwargs.update(kwargs)
 
         self.cases = []
 
@@ -94,7 +104,7 @@ class OfflineJudge:
         print(text)
 
     def format_ansi(self, text):
-        return ansi_style(text, self.no_ansi)
+        return ansi_style(text, self.kwargs['no_ansi'])
 
     def format_verdict(self, verdict):
         return self.format_ansi('#ansi[{}]({}|bold)'.format(verdict.name, VERDICT_COLOUR[verdict]))
@@ -105,11 +115,25 @@ class OfflineJudge:
     def format_resources(self, time, mem):
         return '{memory} {time}s'.format(memory=self.format_memory(mem), time=round(time, 4))
 
+    def get_padding(self, depth):
+        return '' if self.kwargs['full_paths'] else (' ' * 4 * depth) + ' '
+
+    def get_filename(self, filename):
+        return filename if self.kwargs['full_paths'] else os.path.basename(filename)
+
     def print_case(self, case, depth):
+        verdict_name = case.verdict.name
+        if verdict_name not in self.kwargs['include_verdicts'] or \
+                verdict_name in self.kwargs['exclude_verdicts']:
+            return
+
         usage_str = self.format_resources(case.time, case.memory)
-        case_name = '{padding} {filename}: '.format(padding=' ' * 4 * depth, filename=os.path.basename(case.case))
-        case_name_verdict = case_name + self.format_verdict(case.verdict)
-        if case.verdict in (Verdict.WA, Verdict.AC, Verdict.OLE):
+        case_name_verdict = '{padding}{filename}: {verdict}'.format(padding=self.get_padding(depth),
+                                                                    filename=self.get_filename(case.case),
+                                                                    verdict=self.format_verdict(case.verdict))
+        if self.kwargs['no_resource_usage']:
+            self.echo(case_name_verdict)
+        elif case.verdict in (Verdict.WA, Verdict.AC, Verdict.OLE):
             self.echo('{} {}'.format(case_name_verdict, usage_str))
         elif case.verdict == Verdict.TLE:
             self.echo('{} (>{}s) {}'.format(case_name_verdict, self.time_limit, self.format_memory(case.memory)))
@@ -176,8 +200,9 @@ class OfflineJudge:
     def recursive_judge(self, case, depth=-1):
         if os.path.isdir(case):
             if depth != -1:
-                self.echo(self.format_ansi('#ansi[{padding} - {basename}](yellow|bold)'.format(padding=' ' * 4 * depth,
-                                                                                               basename=os.path.basename(case))))
+                if not self.kwargs['full_paths']:
+                    self.echo(self.format_ansi('#ansi[{padding}- {basename}](yellow|bold)'
+                                                    .format(padding=self.get_padding(depth), basename=os.path.basename(case))))
             for filename in sorted(os.listdir(case), key=self.file_sort):
                 self.recursive_judge(os.path.join(case, filename), depth+1)
         elif case.endswith('.in'):
@@ -198,12 +223,15 @@ class OfflineJudge:
         for case in self.cases:
             status_mask |= case.verdict.value
 
-        self.echo('{ac}/{total} {verdict} {usage}/{max_time}s'.format(ac=num_ac, total=num_cases,
-                                                                      verdict=self.format_verdict(Verdict(status_mask & -status_mask)),
-                                                                      usage=self.format_resources(time_sum, memory),
-                                                                      max_time=round(time_max, 4)))
+        if not self.kwargs['no_summary']:
+            self.echo('{ac}/{total} {verdict} {usage}/{max_time}s'
+                            .format(ac=num_ac, total=num_cases,
+                                    verdict=self.format_verdict(Verdict(status_mask & -status_mask)),
+                                    usage=self.format_resources(time_sum, memory),
+                                    max_time=round(time_max, 4)))
 
 def main():
+    verdicts = list(Verdict.__members__.keys())
     checkers = {
         'standard' : standard,
         'floats'   : floats,
@@ -223,10 +251,20 @@ def main():
                                            'Therefore, scripts starting with "#!/bin/sh" will work, though it is '
                                            'a questionable language choice. Additional languages can be supported '
                                            'through helper scripts.')
-    parser.add_argument('checker', default='standard', nargs='?', choices=checkers.keys(), 
+    parser.add_argument('checker', default='standard', nargs='?', choices=checkers.keys(),
                             help='Checker to be used to compare the correct output '
                                  'and the executable output. (default: standard)')
-    parser.add_argument('--no-ansi', action='store_const', default=0, const=1, help='disable ANSI output')
+    parser.add_argument('--no-ansi', action='store_const', default=0, const=1, help='Disable ANSI output.')
+    parser.add_argument('--full-paths', action='store_const', default=0, const=1,
+                            help='Use full case paths instead of batch headings and padding.')
+    parser.add_argument('--no-summary', action='store_const', default=0, const=1,
+                            help='Do not output the final summary.')
+    parser.add_argument('--no-resource-usage', action='store_const', default=0, const=1,
+                            help='Do not output time and memory usage.')
+    parser.add_argument('--only-verdicts', nargs='+', help='Only display cases with the verdicts specified.',
+                            default=verdicts, choices=verdicts)
+    parser.add_argument('--exclude-verdicts', nargs='+', help='Do not display cases with the verdicts specified.',
+                            default=[], choices=verdicts)
     args = parser.parse_args()
 
     case_path = args.test_cases
@@ -235,8 +273,16 @@ def main():
     executable = args.executable
     checker = checkers[args.checker]
     no_ansi = args.no_ansi
+    full_paths = args.full_paths
+    no_summary = args.no_summary
+    no_resource_usage = args.no_resource_usage
 
-    OfflineJudge(case_path, time_limit, memory_limit, executable, checker, no_ansi).run()
+    include_verdicts = args.only_verdicts
+    exclude_verdicts = args.exclude_verdicts
+
+    OfflineJudge(case_path, time_limit, memory_limit, executable, checker,
+                 no_ansi=no_ansi, full_paths=full_paths, no_summary=no_summary, no_resource_usage=no_resource_usage,
+                 include_verdicts=include_verdicts, exclude_verdicts=exclude_verdicts).run()
     return 0
 
 
