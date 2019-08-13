@@ -202,7 +202,8 @@ class OfflineJudge:
             if depth != -1:
                 if not self.kwargs['full_paths']:
                     self.echo(self.format_ansi('#ansi[{padding}- {basename}](yellow|bold)'
-                                                    .format(padding=self.get_padding(depth), basename=os.path.basename(case))))
+                                                    .format(padding=self.get_padding(depth),
+                                                            basename=os.path.basename(case))))
             for filename in sorted(os.listdir(case), key=self.file_sort):
                 self.recursive_judge(os.path.join(case, filename), depth+1)
         elif case.endswith('.in'):
@@ -230,6 +231,14 @@ class OfflineJudge:
                                     usage=self.format_resources(time_sum, memory),
                                     max_time=round(time_max, 4)))
 
+
+def parse_memory(value):
+    try:
+        return (int(value[:-1]) * MEMORY_UNIT[value[-1:]]) & -mmap.PAGESIZE
+    except:
+        raise argparse.ArgumentTypeError('{} is not a valid memory limit.'.format(value))
+
+
 def main():
     verdicts = list(Verdict.__members__.keys())
     checkers = {
@@ -243,10 +252,11 @@ def main():
                                            'a file with the same name ending with `.out`.')
     parser.add_argument('time_limit', type=float, help='Time limit in seconds. Decimals are accepted. '
                                                        'Note that this limit can be bypassed by catching SIGXCPU.')
-    parser.add_argument('memory_limit', help='Memory limit in one of "B", "K", "M", "G", "T". '
-                                             'This must be one continuous string, for example "5M" is '
-                                             'valid, however, "5 M" is not. Keep in mind that this has to '
-                                             "be a multiple of the architecture's page size.")
+    parser.add_argument('memory_limit', type=parse_memory,
+                            help='Memory limit in one of "B", "K", "M", "G", "T". '
+                                 'This must be one continuous string, for example "5M" is '
+                                 'valid, however, "5 M" is not. Keep in mind that this has to '
+                                 "be a multiple of the architecture's page size.")
     parser.add_argument('executable', help='The executable to run. It is executed through the execve system call. '
                                            'Therefore, scripts starting with "#!/bin/sh" will work, though it is '
                                            'a questionable language choice. Additional languages can be supported '
@@ -269,7 +279,7 @@ def main():
 
     case_path = args.test_cases
     time_limit = args.time_limit
-    memory_limit = (int(args.memory_limit[:-1]) * MEMORY_UNIT[args.memory_limit[-1:]]) & -mmap.PAGESIZE
+    memory_limit = args.memory_limit
     executable = args.executable
     checker = checkers[args.checker]
     no_ansi = args.no_ansi
