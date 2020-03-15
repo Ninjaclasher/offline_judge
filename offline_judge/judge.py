@@ -161,6 +161,7 @@ class OfflineJudge:
             os.dup2(w, 1)
             resource.setrlimit(resource.RLIMIT_AS, (self.memory_limit,)*2)
             resource.setrlimit(resource.RLIMIT_CPU, (math.ceil(self.time_limit),)*2)
+            resource.setrlimit(resource.RLIMIT_STACK, (self.memory_limit,)*2)
             os.execv(self.executable, [self.executable])
         submission = pid
         os.close(w)
