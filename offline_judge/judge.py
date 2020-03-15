@@ -166,7 +166,7 @@ class OfflineJudge:
         submission = pid
         os.close(w)
         if out_limit is None:
-            out_limit = os.stat(file_o).st_size * 4
+            out_limit = max(2**15, os.stat(file_o).st_size * 4)
 
         result = os.read(r, mmap.PAGESIZE)
         while len(result) < out_limit:
